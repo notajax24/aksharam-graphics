@@ -1,15 +1,52 @@
 "use client"
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react"
-import { motion, AnimatePresence } from "motion/react"
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react"
+import { motion, AnimatePresence, Transition, VariantLabels, TargetAndTransition } from "framer-motion"
 
 import "./RotatingText.css"
 
-function cn(...classes) {
+// FIXED: Added type definition for the classes array
+function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(" ")
 }
 
-const RotatingText = forwardRef((props, ref) => {
+// DEFINED: Types for the component props
+export interface RotatingTextProps extends React.HTMLAttributes<HTMLSpanElement> {
+  texts: string[]
+  transition?: Transition
+  initial?: any // Framer motion initial state
+  animate?: any // Framer motion animate state
+  exit?: any // Framer motion exit state
+  animatePresenceMode?: "wait" | "popLayout" | "sync"
+  animatePresenceInitial?: boolean
+  rotationInterval?: number
+  staggerDuration?: number
+  staggerFrom?: "first" | "last" | "center" | "random" | number
+  loop?: boolean
+  auto?: boolean
+  splitBy?: "characters" | "words" | "lines" | string
+  onNext?: (index: number) => void
+  mainClassName?: string
+  splitLevelClassName?: string
+  elementLevelClassName?: string
+}
+
+// DEFINED: Types for the Ref handle (methods you can call from parent)
+export interface RotatingTextRef {
+  next: () => void
+  previous: () => void
+  jumpTo: (index: number) => void
+  reset: () => void
+}
+
+const RotatingText = forwardRef<RotatingTextRef, RotatingTextProps>((props, ref) => {
   const {
     texts,
     transition = { type: "spring", damping: 25, stiffness: 300 },
@@ -33,10 +70,12 @@ const RotatingText = forwardRef((props, ref) => {
 
   const [currentTextIndex, setCurrentTextIndex] = useState(0)
 
-  const splitIntoCharacters = (text) => {
-    if (typeof Intl !== "undefined" && Intl.Segmenter) {
+  const splitIntoCharacters = (text: string) => {
+    if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+      // @ts-ignore - Intl.Segmenter is supported in modern browsers/node but TS might complain depending on lib version
       const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" })
-      return Array.from(segmenter.segment(text), (segment) => segment.segment)
+      // @ts-ignore
+      return Array.from(segmenter.segment(text), (segment: any) => segment.segment)
     }
     return Array.from(text)
   }
@@ -70,7 +109,7 @@ const RotatingText = forwardRef((props, ref) => {
   }, [texts, currentTextIndex, splitBy])
 
   const getStaggerDelay = useCallback(
-    (index, totalChars) => {
+    (index: number, totalChars: number) => {
       const total = totalChars
       if (staggerFrom === "first") return index * staggerDuration
       if (staggerFrom === "last") return (total - 1 - index) * staggerDuration
@@ -82,13 +121,13 @@ const RotatingText = forwardRef((props, ref) => {
         const randomIndex = Math.floor(Math.random() * total)
         return Math.abs(randomIndex - index) * staggerDuration
       }
-      return Math.abs(staggerFrom - index) * staggerDuration
+      return Math.abs((staggerFrom as number) - index) * staggerDuration
     },
     [staggerFrom, staggerDuration],
   )
 
   const handleIndexChange = useCallback(
-    (newIndex) => {
+    (newIndex: number) => {
       setCurrentTextIndex(newIndex)
       if (onNext) onNext(newIndex)
     },
@@ -96,21 +135,31 @@ const RotatingText = forwardRef((props, ref) => {
   )
 
   const next = useCallback(() => {
-    const nextIndex = currentTextIndex === texts.length - 1 ? (loop ? 0 : currentTextIndex) : currentTextIndex + 1
+    const nextIndex =
+      currentTextIndex === texts.length - 1
+        ? loop
+          ? 0
+          : currentTextIndex
+        : currentTextIndex + 1
     if (nextIndex !== currentTextIndex) {
       handleIndexChange(nextIndex)
     }
   }, [currentTextIndex, texts.length, loop, handleIndexChange])
 
   const previous = useCallback(() => {
-    const prevIndex = currentTextIndex === 0 ? (loop ? texts.length - 1 : currentTextIndex) : currentTextIndex - 1
+    const prevIndex =
+      currentTextIndex === 0
+        ? loop
+          ? texts.length - 1
+          : currentTextIndex
+        : currentTextIndex - 1
     if (prevIndex !== currentTextIndex) {
       handleIndexChange(prevIndex)
     }
   }, [currentTextIndex, texts.length, loop, handleIndexChange])
 
   const jumpTo = useCallback(
-    (index) => {
+    (index: number) => {
       const validIndex = Math.max(0, Math.min(index, texts.length - 1))
       if (validIndex !== currentTextIndex) {
         handleIndexChange(validIndex)
@@ -143,7 +192,12 @@ const RotatingText = forwardRef((props, ref) => {
   }, [next, rotationInterval, auto])
 
   return (
-    <motion.span className={cn("text-rotate", mainClassName)} {...rest} layout transition={transition}>
+    <motion.span
+      className={cn("text-rotate", mainClassName)}
+      {...rest}
+      layout
+      transition={transition}
+    >
       <span className="text-rotate-sr-only">{texts[currentTextIndex]}</span>
       <AnimatePresence mode={animatePresenceMode} initial={animatePresenceInitial}>
         <motion.span
@@ -153,7 +207,9 @@ const RotatingText = forwardRef((props, ref) => {
           aria-hidden="true"
         >
           {elements.map((wordObj, wordIndex, array) => {
-            const previousCharsCount = array.slice(0, wordIndex).reduce((sum, word) => sum + word.characters.length, 0)
+            const previousCharsCount = array
+              .slice(0, wordIndex)
+              .reduce((sum, word) => sum + word.characters.length, 0)
             return (
               <span key={wordIndex} className={cn("text-rotate-word", splitLevelClassName)}>
                 {wordObj.characters.map((char, charIndex) => (
