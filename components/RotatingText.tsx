@@ -8,22 +8,27 @@ import React, {
   useMemo,
   useState,
 } from "react"
-import { motion, AnimatePresence, Transition, VariantLabels, TargetAndTransition } from "framer-motion"
+import {
+  motion,
+  AnimatePresence,
+  Transition,
+  HTMLMotionProps,
+} from "framer-motion"
 
 import "./RotatingText.css"
 
-// FIXED: Added type definition for the classes array
+// Helper function for classes
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(" ")
 }
 
-// DEFINED: Types for the component props
-export interface RotatingTextProps extends React.HTMLAttributes<HTMLSpanElement> {
+// FIXED: Interface now extends HTMLMotionProps<"span"> to fix the onDrag/event type mismatch
+export interface RotatingTextProps extends Omit<HTMLMotionProps<"span">, "onAnimationStart" | "onDrag" | "onDragStart" | "onDragEnd" | "onDragOver" | "onDragEnter" | "onDragLeave" | "onDrop"> {
   texts: string[]
   transition?: Transition
-  initial?: any // Framer motion initial state
-  animate?: any // Framer motion animate state
-  exit?: any // Framer motion exit state
+  initial?: any
+  animate?: any
+  exit?: any
   animatePresenceMode?: "wait" | "popLayout" | "sync"
   animatePresenceInitial?: boolean
   rotationInterval?: number
@@ -38,7 +43,6 @@ export interface RotatingTextProps extends React.HTMLAttributes<HTMLSpanElement>
   elementLevelClassName?: string
 }
 
-// DEFINED: Types for the Ref handle (methods you can call from parent)
 export interface RotatingTextRef {
   next: () => void
   previous: () => void
@@ -72,7 +76,7 @@ const RotatingText = forwardRef<RotatingTextRef, RotatingTextProps>((props, ref)
 
   const splitIntoCharacters = (text: string) => {
     if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
-      // @ts-ignore - Intl.Segmenter is supported in modern browsers/node but TS might complain depending on lib version
+      // @ts-ignore
       const segmenter = new Intl.Segmenter("en", { granularity: "grapheme" })
       // @ts-ignore
       return Array.from(segmenter.segment(text), (segment: any) => segment.segment)
